@@ -22,7 +22,9 @@ struct WebPageGraph {
 
     /*
     
-        A directed graph that represents web pages, and how they connect to each other. This is generated through the scraping process, and used to calculate the page rank of each web page. 
+        A directed graph that represents web pages, and how they connect to each other. This is generated through the scraping process, and used to calculate the page rank of each web page.
+        
+        The graph and node objects are meant to only contain the urls, and be as light as possible. The only thing the graph is used for is to do things that involve the connections between web pages
     
     */
 
@@ -138,6 +140,60 @@ async fn fetch_html_content(url: &str) -> Result<String, reqwest::Error> {
     Ok(html_content)
 }
 
+
+fn extract_relevant_links(html_content: &str) -> Vec<String> {
+    /*
+    
+        Parse the HTML content of a web page, and return a vector containing a string for each of the relevant links to the crawler 
+    
+    */
+
+
+    // parse the HTML for the web page
+    let document = Html::parse_document(&html_content);
+
+    // create a selector for the link tags
+    let selector = Selector::parse("a").expect("failed to parse CSS selector");
+
+    let mut relevant_links: Vec<String> = Vec::new();
+
+    // iterate through all the anchor tags and extract the href attribute
+    for element in document.select(&selector) {
+        // extract the href attribute
+        if let Some(href) = element.value().attr("href") {
+
+            // Here the link is filtered to make sure that the function only returns desired links. Most of these criteria were created through trial and error, and do a fairly good job of only allowing links to other wikipedia pages to pass through
+
+            if href.contains("wikipedia.org") { continue }
+
+            if href.contains("wikidata.org") { continue }
+
+            if href.contains("wikimedia") { continue }
+
+            if href.contains("https://") { continue }
+
+            if href.contains(":") { continue }
+
+            if href.contains("#") { continue }
+
+            if href.contains("%") { continue }
+
+            if href.contains("&") { continue }
+
+            if href.contains("disambiguation") { continue }
+
+            let mut wikipedia_url = String::from("https://wikipedia.org");
+            wikipedia_url.push_str(href);
+
+            // assuming the link has passed through the 'filter'
+            relevant_links.push(wikipedia_url);
+        }
+    }
+
+    return relevant_links
+}
+
+
 #[tokio::main]
 async fn main() 
 {
@@ -146,18 +202,10 @@ async fn main()
     match fetch_html_content(start_url).await {
         Ok(html_content) => {
 
-            // parse the HTML for the web page
-            let document = Html::parse_document(&html_content);
+            let relevant_links = extract_relevant_links(&html_content);
 
-            // create a selector for the link tags
-            let selector = Selector::parse("a").expect("failed to parse CSS selector");
-
-            // iterate through all the anchor tags and extract the href attribute
-            for element in document.select(&selector) {
-                // extract the href attribute
-                if let Some(href) = element.value().attr("href") {
-                    println!("{}", href);
-                }
+            for link in relevant_links.iter() {
+                println!("Link {}", link);
             }
 
         }
