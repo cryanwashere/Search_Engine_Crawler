@@ -1,6 +1,10 @@
 use reqwest;
 use tokio;
 
+use std::collections::HashMap;
+
+use scraper::{Html, Selector};
+
 
 struct WebPageNode {
     /*
@@ -10,7 +14,7 @@ struct WebPageNode {
     */
 
     url: String,
-    outgoing_node_urls: [String]
+    outgoing_node_urls: Vec<String>
 }
 
 
@@ -22,29 +26,21 @@ struct WebPageGraph {
     
     */
 
-    nodes: Vec<WebPageNode>,
-}
-
-fn node_from_url(graph: &WebPageGraph, url: String) -> &WebPageNode {
-    for node in WebPageGraph.iter() {
-        if (node.url == url) {
-            return *node;
-        }
-        // If the url was not found
-        return None
-    }
+    nodes: HashMap<String, WebPageNode>,
 }
 
 
-struct TransitionMatrixEdge {
+
+/*
+struct TransitionMatrixEdge<'a> {
     /*
     
         This populates the rows of the transition matrix
     
     */
 
-    outgoing_node: &WebPageNode,
-    incoming_node: &WebPageNode,
+    outgoing_node: &'a WebPageNode,
+    incoming_node: &'a WebPageNode,
      
 
     // The probability that this edge will be traversed by a markov chain, given that it is already at 'outgoing_node'
@@ -120,18 +116,53 @@ fn construct_markov_transition_matrix(graph: &WebPageGraph) -> SparseMarkovTrans
         for outgoing_edge_url in node.outgoing_node_urls {
             let edge = TransitionMatrixEdge{
                 outgoing_node: *node,
-
+                incoming_node: node_from_url(outgoing_edge_url),
+                transition_probability: 1/outgoing_nodes_f32,
             };
         }
 
     }
 }
 
+*/
 
 
+async fn fetch_html_content(url: &str) -> Result<String, reqwest::Error> {
+    /*
 
+        Make an HTTP request to get the HTML content for the given URL
+    
+    */
+    let response = reqwest::get(url).await?;
+    let html_content = response.text().await?;
+    Ok(html_content)
+}
 
-fn main() 
+#[tokio::main]
+async fn main() 
 {
-   println!("Hello, World!");
+    let start_url = "https://wikipedia.org/wiki/Google_Search";
+
+    match fetch_html_content(start_url).await {
+        Ok(html_content) => {
+
+            // parse the HTML for the web page
+            let document = Html::parse_document(&html_content);
+
+            // create a selector for the link tags
+            let selector = Selector::parse("a").expect("failed to parse CSS selector");
+
+            // iterate through all the anchor tags and extract the href attribute
+            for element in document.select(&selector) {
+                // extract the href attribute
+                if let Some(href) = element.value().attr("href") {
+                    println!("{}", href);
+                }
+            }
+
+        }
+        Err(err) => {
+            eprintln!("Error: {}", err);
+        }
+    }
 }
