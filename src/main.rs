@@ -5,7 +5,13 @@ use std::collections::HashMap;
 
 use scraper::{Html, Selector};
 
+use async_recursion::async_recursion;
 
+
+use serde::{Serialize, Deserialize};
+
+
+#[derive(Serialize, Deserialize)]
 struct WebPageNode {
     /*
 
@@ -14,10 +20,10 @@ struct WebPageNode {
     */
 
     url: String,
-    outgoing_node_urls: Vec<String>
+    linked_urls: Vec<String>,
 }
 
-
+#[derive(Serialize, Deserialize)]
 struct WebPageGraph {
 
     /*
@@ -28,10 +34,8 @@ struct WebPageGraph {
     
     */
 
-    nodes: HashMap<String, WebPageNode>,
+    node_hashmap: HashMap<String, WebPageNode>,
 }
-
-
 
 /*
 struct TransitionMatrixEdge<'a> {
@@ -141,7 +145,7 @@ async fn fetch_html_content(url: &str) -> Result<String, reqwest::Error> {
 }
 
 
-fn extract_relevant_links(html_content: &str) -> Vec<String> {
+fn extract_relevant_wikipedia_links(html_content: &str) -> Vec<String> {
     /*
     
         Parse the HTML content of a web page, and return a vector containing a string for each of the relevant links to the crawler 
@@ -193,24 +197,123 @@ fn extract_relevant_links(html_content: &str) -> Vec<String> {
     return relevant_links
 }
 
+#[async_recursion]
+async fn recursive_page_crawl(graph: &mut WebPageGraph, url: &str, recursion_depth: i32, max_recursion_depth:i32, url_max: i32) {
+    /*
+    
+        
+    
+    */
 
-#[tokio::main]
-async fn main() 
-{
-    let start_url = "https://wikipedia.org/wiki/Google_Search";
+    if recursion_depth >= max_recursion_depth {
+        println!("Maximum recursion depth exceeded.");
+        return 
+    }
 
-    match fetch_html_content(start_url).await {
+    if (graph.node_hashmap.len() as i32) >= url_max {
+        //println!("Maximum number of pages crawled. Process finished.");
+        return 
+    }
+
+    
+
+    match fetch_html_content(url).await {
         Ok(html_content) => {
 
-            let relevant_links = extract_relevant_links(&html_content);
+            // get the links to other wikipedia pages from the link
+            let relevant_links = extract_relevant_wikipedia_links(&html_content);
 
+            // insert the url into the graph
+            let url_node = WebPageNode {
+                url: url.to_string(),
+                linked_urls: relevant_links.clone(),
+            };
+            graph.node_hashmap.insert(url.to_string(), url_node);
+            
+            println!("page: {} depth: {} links: {} {}", 
+                graph.node_hashmap.len(),
+                recursion_depth+1,
+                relevant_links.len(),
+                url, 
+            );
+
+            // iterate through each of the links in the wikipedia page
             for link in relevant_links.iter() {
-                println!("Link {}", link);
+                // make sure that the given link has not already been visited by the crawler
+                if !graph.node_hashmap.contains_key(link) {
+                    // perform the recursive function
+                    recursive_page_crawl(
+                        graph,
+                        link,
+                        recursion_depth+1, 
+                        max_recursion_depth,
+                        url_max,
+                    ).await;
+                }
             }
-
         }
         Err(err) => {
             eprintln!("Error: {}", err);
         }
     }
+    
+}
+
+fn save_to_disk_json<T>(object: &T, filename: &str) where T: Serialize, {
+    let serialized_data = serde_json::to_string(object).expect("Serialization failed");
+
+    use std::fs::File;
+    use std::io::Write;
+
+    let mut file = File::create(filename).expect("Unable to create file");
+    file.write_all(serialized_data.as_bytes()).expect("Unable to write file");
+}
+
+fn load_from_disk_json<T>(filename: &str) -> Result<T, serde_json::Error>
+where
+    T: Deserialize<'static>,
+{
+    use std::fs::File;
+    use std::io::Read;
+
+    let mut file = File::open(filename)?;
+    let mut buffer = String::new();
+    file.read_to_string(&mut buffer)?;
+
+    let deserialized_data: T = serde_json::from_str(&buffer)?;
+
+    Ok(deserialized_data)
+}
+
+#[tokio::main]
+async fn main() 
+{
+    // This is the url where the recursive crawl is gathered from
+    let start_url = "https://wikipedia.org/wiki/Google_Search";
+
+    // The maximium nunber of pages to add to the index
+    let url_max = 5;
+
+    // The maximum recursion depth for the crawler
+    let max_recursion_depth = 30;
+
+    // the graph that stores all the links
+    //let mut web_page_graph = WebPageGraph {
+        node_hashmap: HashMap::new()
+    //};
+
+    println!("Initializing recursive crawl...");
+    recursive_page_crawl(
+        &mut web_page_graph,
+        start_url, 
+        0,
+        max_recursion_depth,
+        url_max,
+    ).await;
+
+   let filename = "crawl_1.json";
+
+   save_to_disk_json(&web_page_graph, filename);
+
+   
 }
