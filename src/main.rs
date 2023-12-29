@@ -11,6 +11,14 @@ use async_recursion::async_recursion;
 use serde::{Serialize, Deserialize};
 
 
+/*
+
+    Web Page Graph:
+    WebPageNode, and WebPageGraph are meant to create a representation of the connections between web pages. They are not meant to be hold any information other then the connections between web pages, and they will be used to contain crawling data, and calculate things like page rank. 
+
+
+*/
+
 #[derive(Serialize, Deserialize)]
 struct WebPageNode {
     /*
@@ -37,100 +45,6 @@ struct WebPageGraph {
     node_hashmap: HashMap<String, WebPageNode>,
 }
 
-/*
-struct TransitionMatrixEdge<'a> {
-    /*
-    
-        This populates the rows of the transition matrix
-    
-    */
-
-    outgoing_node: &'a WebPageNode,
-    incoming_node: &'a WebPageNode,
-     
-
-    // The probability that this edge will be traversed by a markov chain, given that it is already at 'outgoing_node'
-    transition_probability: f32,
-
-}
-
-struct SparseTransitionMatrixRow {
-    /*
-    
-        A row in the sparse transition matrix. It contains a list representing each of the edges and their probabilities in the row.
-
-        Each row represents a node, and each edge inside the row contains the probability that a markov chain at the outgoing_node of the edge will traverse to the node. 
-    
-    */
-
-    // This is the url of the web page that the row represents
-    url: String,
-
-    transition_edges: Vec<TransitionMatrixEdge>,
-}
-
-struct SparseMarkovTransitionMatrix {
-    /*
-    
-        Given a graph for a web page, we want to constuct a sparse matrix that represents the transition probabilities for the web page graph. Each row of the matrix represents the probability vector of arriving at that node from the node represented by each given index. If x_n is the probability vector representing the probability of being at each specific node at step n, then the probability of being at each specific node at step n+1 is the matrix vector product of P and x_n (Where P is the transition matrix, and P(a,b) is the probability of transitioning to node b from node a): 
-
-        x_{n+1} = Px_n = 
-
-        [P(0)P(0,0) + P(1)P(1,0) + ... + P(m)P(m,0)]
-        [P(0)P(0,1) + P(1)P(1,1) + ... + P(m)P(m,1)]
-        [                   ...                    ]
-        [P(0)P(0,m) + P(1)P(1,m) + ... + P(m)P(m,m)]
-
-        =
-
-        [P(0,0), P(1,0), ... , P(m,0)] [P(0)]
-        [P(0,1), P(1,1), ... , P(m,1)] [P(1)]
-        [ ...                    ... ]  ...
-        [P(0,m), P(1,m), ... , P(m,m)] [P(m)]
-
-    */
-    transition_matrix_rows: Vec<SparseTransitionMatrixRow>
-
-}
-
-fn construct_markov_transition_matrix(graph: &WebPageGraph) -> SparseMarkovTransitionMatrix 
-{
-    /*
-    
-        Construct the markov transition matrix a web page graph. This is essentially transposing a sparse matrix. It is assumed that when a markov chain is at a specific node, it is equiprobable that it will traverse to any of the node's outgoing edges. 
-    
-    */
-
-    // first, create the matrix rows. It is nescessary to create all of the rows before they are populated by web pages. 
-    let mut transition_matrix_rows: Vec<SparseTransitionMatrixRow> = Vec::new();
-    for node in graph.nodes.into_iter() {
-
-        // create the row for the transition matrix
-        let row = SparseTransitionMatrixRow {
-            url: node.url,
-            transition_edges: Vec::new(), 
-        };
-        transition_matrix_rows.push(row);
-    }
-
-    // Now, we iterate through the graph nodes again, and add the edges to their existing nodes. 
-    for node in graph.nodes.into_iter() {
-        let outgoing_nodes_i32 = node.outgoing_nodes.len();
-        let outgoing_nodes_f32 = outgoing_nodes_i32 as f32;
-
-        // iterate through the outgoing edges of the node:
-        for outgoing_edge_url in node.outgoing_node_urls {
-            let edge = TransitionMatrixEdge{
-                outgoing_node: *node,
-                incoming_node: node_from_url(outgoing_edge_url),
-                transition_probability: 1/outgoing_nodes_f32,
-            };
-        }
-
-    }
-}
-
-*/
 
 
 async fn fetch_html_content(url: &str) -> Result<String, reqwest::Error> {
@@ -143,6 +57,7 @@ async fn fetch_html_content(url: &str) -> Result<String, reqwest::Error> {
     let html_content = response.text().await?;
     Ok(html_content)
 }
+
 
 
 fn extract_relevant_wikipedia_links(html_content: &str) -> Vec<String> {
@@ -259,31 +174,10 @@ async fn recursive_page_crawl(graph: &mut WebPageGraph, url: &str, recursion_dep
     
 }
 
-fn save_to_disk_json<T>(object: &T, filename: &str) where T: Serialize, {
-    let serialized_data = serde_json::to_string(object).expect("Serialization failed");
 
-    use std::fs::File;
-    use std::io::Write;
 
-    let mut file = File::create(filename).expect("Unable to create file");
-    file.write_all(serialized_data.as_bytes()).expect("Unable to write file");
-}
 
-fn load_from_disk_json<T>(filename: &str) -> Result<T, serde_json::Error>
-where
-    T: Deserialize<'static>,
-{
-    use std::fs::File;
-    use std::io::Read;
-
-    let mut file = File::open(filename)?;
-    let mut buffer = String::new();
-    file.read_to_string(&mut buffer)?;
-
-    let deserialized_data: T = serde_json::from_str(&buffer)?;
-
-    Ok(deserialized_data)
-}
+/*
 
 #[tokio::main]
 async fn main() 
@@ -298,9 +192,9 @@ async fn main()
     let max_recursion_depth = 30;
 
     // the graph that stores all the links
-    //let mut web_page_graph = WebPageGraph {
+    let mut web_page_graph = WebPageGraph {
         node_hashmap: HashMap::new()
-    //};
+    };
 
     println!("Initializing recursive crawl...");
     recursive_page_crawl(
@@ -316,4 +210,45 @@ async fn main()
    save_to_disk_json(&web_page_graph, filename);
 
    
+}
+*/
+
+
+/*
+
+    Serialize and deserialize rust objects to JSOn. Node that these two functions were mostly written by chatGPT.
+
+*/
+fn save_to_disk_json<T>(object: &T, filename: &str) where T: Serialize, {
+    let serialized_data = serde_json::to_string(object).expect("Serialization failed");
+
+    use std::fs::File;
+    use std::io::Write;
+
+    let mut file = File::create(filename).expect("Unable to create file");
+    file.write_all(serialized_data.as_bytes()).expect("Unable to write file");
+}
+/*
+fn load_from_disk_json<T>(filename: &str) -> Result<T, serde_json::Error>
+where
+    T: Deserialize<'static>,
+{
+    use std::fs::File;
+    use std::io::Read;
+
+    let mut file = File::open(filename)?;
+    let mut buffer = String::new();
+    file.read_to_string(&mut buffer)?;
+
+    let deserialized_data: T = serde_json::from_str(&buffer)?;
+
+    Ok(deserialized_data)
+}
+*/
+
+
+
+fn main() {
+    println!("Hello, World!");
+
 }

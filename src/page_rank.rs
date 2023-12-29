@@ -93,3 +93,20 @@ fn construct_markov_transition_matrix(graph: &WebPageGraph) -> SparseMarkovTrans
 }
 
 */
+
+
+struct URLPayload {
+    page_rank: f32,
+}
+struct URLLookupHashMap {
+    /*
+    
+        This will be for getting information about a URL.
+
+        Ideally, this can store the page rank for the entire index, and then be stored to a binary file. The binary file can then be opened, and used whenever the page rank of a url needs to be determined. 
+    
+    */
+
+    hashmap: HashMap<String, WebPagePayload>,
+}
+
