@@ -1,12 +1,8 @@
 
 
-use bincode;
-
-
-use std::fs;
-
-fn main() {
-    
+//use bincode;
+//use std::fs;
+/*
     let target : Option<String> = Some("Hello".to_string());
 
     let encoded : Vec<u8> = bincode::serialize(&target).unwrap();
@@ -18,4 +14,14 @@ fn main() {
     let decoded : Option<String> = bincode::deserialize(&read_encoded[..]).unwrap();
 
     println!("decoded string: {:?}", decoded);
+*/
+
+mod crawl;
+use futures::executor::block_on;
+use tokio;
+
+#[tokio::main]
+async fn main() {
+    crawl::initialize_crawl().await;
+
 }
