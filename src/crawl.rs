@@ -3,7 +3,7 @@ use reqwest;
 
 use std::collections::HashSet;
 
-mod parse;
+pub mod parse;
 
 
 
@@ -18,6 +18,20 @@ async fn fetch_html_content(url: &str) -> Result<String, reqwest::Error> {
     let response = reqwest::get(url).await?;
     let html_content = response.text().await?;
     Ok(html_content)
+}
+
+pub async fn send_image_url(image_url: &str, page_url: &str) -> Result<String, reqwest::Error> {
+    let client = reqwest::Client::new();
+
+    let body_string = format!("{{\"image_url\": \"{}\", \"page_url\":\"{}\"}}", image_url, page_url);
+
+    //println!("body string: {}",body_string);
+   
+    let res = client.post("http://localhost:8000/upsert_image_url").header("Content-Type", "application/json").body(body_string).send().await?;
+
+    let message = res.text().await?;
+
+    Ok(message)
 }
 
 
@@ -51,29 +65,43 @@ async fn recursive_page_crawl(crawler: &mut Crawler, url: &str, recursion_depth:
         Ok(html_content) => {
 
             // get the links to other wikipedia pages from the link
-            let relevant_links = parse::extract_relevant_wikipedia_links(&html_content);
+            let parse_result = parse::extract_wikipedia_HTML(&html_content, url);
 
-            // The web page graph is not going to be part of the crawler for now, but this is what the code for inserting the page into the web page graph looks like, in case it is added back. 
-            /*
-            // insert the url into the graph
-            let url_node = WebPageNode {
-                url: url.to_string(),
-                linked_urls: relevant_links.clone(),
-            };
-            graph.node_hashmap.insert(url.to_string(), url_node);
-            */
+            
 
+            
+            // Insert the current url into the crawler's history
             crawler.set.insert(url.to_string());
             
-            println!("page: {} depth: {} links: {} {}", 
+            // Information about the page being crawled
+            println!("Crawled page:");
+            println!("page: {}, depth: {}, page links: {}, image links: {}, url: {}\n", 
                 crawler.set.len(),
                 recursion_depth+1,
-                relevant_links.len(),
+                parse_result.relevant_page_links.len(),
+                parse_result.relevant_image_links.len(),
                 url, 
             );
 
-            // iterate through each of the links in the wikipedia page
-            for link in relevant_links.iter() {
+            // Here is where we can do things with the image links
+            // They should be upserted to the client
+            for image_link in parse_result.relevant_image_links.iter() {
+
+                
+                let upsert_res = send_image_url(image_link,url);
+                match upsert_res.await {
+                    Ok(message) => {
+                        println!("\tupsert: {}", message);
+                    }
+                    Err(err) => {
+                        println!("Error fetching upsert response: {}", err);
+                    }
+                }
+            }
+
+
+            // iterate through each of the page links in the wikipedia html
+            for link in parse_result.relevant_page_links.iter() {
                 // make sure that the given link has not already been visited by the crawler
                 if !crawler.set.contains(link) {
                     // perform the recursive function
@@ -119,13 +147,13 @@ pub async fn initialize_crawl() {
     let start_url = "https://wikipedia.org/wiki/Google_Search";
 
     // The maximium nunber of pages to add to the index
-    let url_max = 5;
+    let url_max = 10;
 
     // The maximum recursion depth for the crawler
     let max_recursion_depth = 32;
 
     // place where the crawl data is stored
-    let crawler_path = "index/crawl_1.bin";
+    let crawler_path = "crawl_history/crawl_1.bin";
 
 
     let bincode_config = config::standard();
@@ -134,7 +162,7 @@ pub async fn initialize_crawl() {
         set: HashSet::new()
     };
 
-    // check if a previous crawl file exists
+    // check if a previous crawl file exists, and if it does, load it
     if Path::new(crawler_path).is_file() {
 
         // If the previous crawl information exists, then this will open the previous crawl binary
@@ -153,10 +181,6 @@ pub async fn initialize_crawl() {
     } else {  println!("No previous crawl found, creating new crawler..."); }
     
     
-    
-    
-    
-    
     println!("Initializing recursive crawl...");
 
     // Start recursively crawling the web
@@ -172,11 +196,23 @@ pub async fn initialize_crawl() {
     println!("Crawling process finished. Crawl contains: {} urls", crawler.set.len());
 
     
-    bincode_write_crawler(&crawler, crawler_path);
-
+   //bincode_write_crawler(&crawler, crawler_path);
+    crawler.bincode_save(crawler_path);
 
 
    
+}
+
+impl Crawler {
+    fn bincode_save(&self, crawler_path: &str) {
+        let bincode_config = config::standard();
+    
+        // Save the crawler set
+        let encoded_crawler : Vec<u8> = bincode::encode_to_vec(self, bincode_config).unwrap();
+        fs::write(crawler_path, encoded_crawler).expect("Unable to write binary crawl file to disk");
+    
+        println!("Crawl history written to disk.")
+    }
 }
 
 
@@ -187,7 +223,7 @@ fn bincode_write_crawler(crawler: &Crawler, crawler_path: &str) {
     let encoded_crawler : Vec<u8> = bincode::encode_to_vec(crawler, bincode_config).unwrap();
     fs::write(crawler_path, encoded_crawler).expect("Unable to write binary crawl file to disk");
 
-    println!("Crawl written to disk.")
+    println!("Crawl history written to disk.")
 }
 
 /*
@@ -225,3 +261,5 @@ async fn main()
    
 }
 */
+
+

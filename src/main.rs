@@ -16,12 +16,42 @@
     println!("decoded string: {:?}", decoded);
 */
 
-mod crawl;
+
 use futures::executor::block_on;
+mod crawl;
+use std::fs;
 use tokio;
 
 #[tokio::main]
 async fn main() {
     crawl::initialize_crawl().await;
 
+/*
+    let upsert_res = crawl::send_image_url("https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/Monarch_Butterfly_Danaus_plexippus_Male_2664px.jpg/220px-Monarch_Butterfly_Danaus_plexippus_Male_2664px.jpg","https://en.wikipedia.org/wiki/Monarch_butterfly");
+
+    match upsert_res.await {
+        Ok(message) => {
+            println!("{}", message);
+        }
+        Err(err) => {
+            println!("Error fetching html content: {}", err);
+        }
+    }
+    */
 }
+
+
+
+// Ignore this
+fn parse_html_test() {
+
+    let html_content = fs::read_to_string("monarch_butterfly.html").expect("Unable to read file");
+    
+
+    let parse_result = crawl::parse::extract_wikipedia_HTML(&html_content, "https://en.wikipedia.org/wiki/Monarch_butterfly");
+
+    parse_result.print_info();
+
+    parse_result.make_content_html("monarch_butterfly_content.html");
+}
+

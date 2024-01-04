@@ -35,3 +35,14 @@ struct WebPageGraph {
 
     node_hashmap: HashMap<String, WebPageNode>,
 }
+
+
+// The web page graph is not going to be part of the crawler for now, but this is what the code for inserting the page into the web page graph looks like, in case it is added back. 
+/*
+// insert the url into the graph
+let url_node = WebPageNode {
+    url: url.to_string(),
+    linked_urls: relevant_links.clone(),
+};
+graph.node_hashmap.insert(url.to_string(), url_node);
+*/

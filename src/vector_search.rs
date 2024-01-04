@@ -44,6 +44,18 @@ trait VectorSearchClient {
 
 
 
+/*
+
+    What does the search client need to be able to do?
+
+    1) read and write itself to and from disk
+    2) perform search querys
+    3) upsert vectors
+    4) remove points
+    
+
+*/
+
 
 
 
