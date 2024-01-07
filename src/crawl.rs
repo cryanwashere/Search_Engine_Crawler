@@ -157,7 +157,7 @@ pub async fn initialize_crawl() {
     let max_recursion_depth = 32;
 
     // place where the crawl data is stored
-    let crawler_path = "crawl_history/crawl_1.bin";
+    let crawler_path = "crawl_history/crawl_2.bin";
 
 
     let bincode_config = config::standard();
@@ -229,38 +229,3 @@ fn bincode_write_crawler(crawler: &Crawler, crawler_path: &str) {
 
     println!("Crawl history written to disk.")
 }
-
-/*
-
-#[tokio::main]
-async fn main() 
-{
-    // This is the url where the recursive crawl is gathered from
-    let start_url = "https://wikipedia.org/wiki/Google_Search";
-
-    // The maximium nunber of pages to add to the index
-    let url_max = 5;
-
-    // The maximum recursion depth for the crawler
-    let max_recursion_depth = 30;
-
-    // the graph that stores all the links
-    let mut web_page_graph = WebPageGraph {
-        node_hashmap: HashMap::new()
-    };
-
-    println!("Initializing recursive crawl...");
-    recursive_page_crawl(
-        &mut web_page_graph,
-        start_url, 
-        0,
-        max_recursion_depth,
-        url_max,
-    ).await;
-
-   let filename = "crawl_1.json";
-
-   save_to_disk_json(&web_page_graph, filenam
-*/
-
-

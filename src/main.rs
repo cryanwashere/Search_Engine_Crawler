@@ -27,6 +27,8 @@ async fn main() {
     // start crawling...
     crawl::initialize_crawl().await;
 
+   
+
 
 }
 
