@@ -17,16 +17,24 @@
 */
 
 
-use futures::executor::block_on;
+//use futures::executor::block_on;
 mod crawl;
 use std::fs;
 use tokio;
 
 #[tokio::main]
 async fn main() {
+    // start crawling...
     crawl::initialize_crawl().await;
 
-/*
+
+}
+
+
+
+// Ignore this
+
+async fn upsert_test() {
     let upsert_res = crawl::send_image_url("https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/Monarch_Butterfly_Danaus_plexippus_Male_2664px.jpg/220px-Monarch_Butterfly_Danaus_plexippus_Male_2664px.jpg","https://en.wikipedia.org/wiki/Monarch_butterfly");
 
     match upsert_res.await {
@@ -37,12 +45,8 @@ async fn main() {
             println!("Error fetching html content: {}", err);
         }
     }
-    */
 }
 
-
-
-// Ignore this
 fn parse_html_test() {
 
     let html_content = fs::read_to_string("monarch_butterfly.html").expect("Unable to read file");

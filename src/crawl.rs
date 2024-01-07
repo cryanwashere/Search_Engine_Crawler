@@ -27,7 +27,7 @@ pub async fn send_image_url(image_url: &str, page_url: &str) -> Result<String, r
 
     //println!("body string: {}",body_string);
    
-    let res = client.post("http://localhost:8000/upsert_image_url").header("Content-Type", "application/json").body(body_string).send().await?;
+    let res = client.post("http://209.97.152.154:8000/upsert_image_url").header("Content-Type", "application/json").body(body_string).send().await?;
 
     let message = res.text().await?;
 
@@ -50,13 +50,12 @@ async fn recursive_page_crawl(crawler: &mut Crawler, url: &str, recursion_depth:
     // Because the web is so vast, it will easily reach a massive recursion depth, without something preventing that from happening. 
     // This ensures that it does not surpass a certain given recursion depth
     if recursion_depth >= max_recursion_depth {
-        println!("Maximum recursion depth exceeded.");
+        //println!("Maximum recursion depth exceeded.");
         return 
     }
 
     // If the maximum number of urls has been gathered by the crawler, then the function will just return so that the process can stop. 
     if (crawler.set.len() as i32) >= url_max {
-        //println!("Maximum number of pages crawled. Process finished.");
         return 
     }
 
@@ -75,7 +74,7 @@ async fn recursive_page_crawl(crawler: &mut Crawler, url: &str, recursion_depth:
             
             // Information about the page being crawled
             println!("Crawled page:");
-            println!("page: {}, depth: {}, page links: {}, image links: {}, url: {}\n", 
+            println!("page: {}, depth: {}, page links: {}, image links: {}, url: {}", 
                 crawler.set.len(),
                 recursion_depth+1,
                 parse_result.relevant_page_links.len(),
@@ -85,13 +84,16 @@ async fn recursive_page_crawl(crawler: &mut Crawler, url: &str, recursion_depth:
 
             // Here is where we can do things with the image links
             // They should be upserted to the client
+            let mut itr = 0;
             for image_link in parse_result.relevant_image_links.iter() {
-
+                if itr >= 9 { break; }
+                itr+=1;
                 
                 let upsert_res = send_image_url(image_link,url);
                 match upsert_res.await {
                     Ok(message) => {
-                        println!("\tupsert: {}", message);
+                        // print out the status of the upsert, and the link for the image that was sent
+                        println!("\tupsert: {}  {}", message, image_link);
                     }
                     Err(err) => {
                         println!("Error fetching upsert response: {}", err);
@@ -114,6 +116,8 @@ async fn recursive_page_crawl(crawler: &mut Crawler, url: &str, recursion_depth:
                     ).await;
                 }
             }
+            // after exploring all the links, save the crawl history
+            crawler.bincode_save("crawl_history/crawl_1.bin");
         }
         Err(err) => {
             println!("Error fetching html content: {}", err);
@@ -147,7 +151,7 @@ pub async fn initialize_crawl() {
     let start_url = "https://wikipedia.org/wiki/Google_Search";
 
     // The maximium nunber of pages to add to the index
-    let url_max = 10;
+    let url_max = 50000;
 
     // The maximum recursion depth for the crawler
     let max_recursion_depth = 32;
@@ -196,7 +200,7 @@ pub async fn initialize_crawl() {
     println!("Crawling process finished. Crawl contains: {} urls", crawler.set.len());
 
     
-   //bincode_write_crawler(&crawler, crawler_path);
+
     crawler.bincode_save(crawler_path);
 
 
@@ -256,10 +260,7 @@ async fn main()
 
    let filename = "crawl_1.json";
 
-   save_to_disk_json(&web_page_graph, filename);
-
-   
-}
+   save_to_disk_json(&web_page_graph, filenam
 */
 
 
