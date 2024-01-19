@@ -22,15 +22,14 @@ mod crawl;
 use std::fs;
 use tokio;
 
+
 #[tokio::main]
 async fn main() {
     // start crawling...
     crawl::initialize_crawl().await;
-
-   
-
-
 }
+
+
 
 
 

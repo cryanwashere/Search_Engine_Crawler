@@ -27,7 +27,7 @@ pub async fn send_image_url(image_url: &str, page_url: &str) -> Result<String, r
 
     //println!("body string: {}",body_string);
    
-    let res = client.post("http://209.97.152.154:8000/upsert_image_url").header("Content-Type", "application/json").body(body_string).send().await?;
+    let res = client.post("http://139.59.167.5:80/upsert_image_url").header("Content-Type", "application/json").body(body_string).send().await?;
 
     let message = res.text().await?;
 
@@ -101,6 +101,21 @@ async fn recursive_page_crawl(crawler: &mut Crawler, url: &str, recursion_depth:
                 }
             }
 
+            // Save the crawl history to a new file
+            if crawler.set.len() % 500 == 0  {
+
+                match get_next_crawler_checkpoint_name() {
+                    Some(checkpoint_name) => {
+                        println!("writing crawler history to {}", checkpoint_name);
+                        crawler.bincode_save(&checkpoint_name);
+                    },
+                    None => {
+                        println!("failed to generate new checkpoint name!");
+                    }
+                }
+
+            }
+
 
             // iterate through each of the page links in the wikipedia html
             for link in parse_result.relevant_page_links.iter() {
@@ -116,8 +131,7 @@ async fn recursive_page_crawl(crawler: &mut Crawler, url: &str, recursion_depth:
                     ).await;
                 }
             }
-            // after exploring all the links, save the crawl history
-            crawler.bincode_save("crawl_history/crawl_1.bin");
+            
         }
         Err(err) => {
             println!("Error fetching html content: {}", err);
@@ -151,13 +165,13 @@ pub async fn initialize_crawl() {
     let start_url = "https://wikipedia.org/wiki/Google_Search";
 
     // The maximium nunber of pages to add to the index
-    let url_max = 50000;
+    let url_max = 100000;
 
     // The maximum recursion depth for the crawler
-    let max_recursion_depth = 32;
+    let max_recursion_depth = 100;
 
     // place where the crawl data is stored
-    let crawler_path = "crawl_history/crawl_2.bin";
+    let crawler_path = "crawl_history/crawl_19";
 
 
     let bincode_config = config::standard();
@@ -199,11 +213,6 @@ pub async fn initialize_crawl() {
 
     println!("Crawling process finished. Crawl contains: {} urls", crawler.set.len());
 
-    
-
-    crawler.bincode_save(crawler_path);
-
-
    
 }
 
@@ -228,4 +237,41 @@ fn bincode_write_crawler(crawler: &Crawler, crawler_path: &str) {
     fs::write(crawler_path, encoded_crawler).expect("Unable to write binary crawl file to disk");
 
     println!("Crawl history written to disk.")
+}
+
+fn get_next_crawler_checkpoint_name() -> Option<String> {
+     // Read the directory and handle possible errors
+     match fs::read_dir("crawl_history") {
+        Ok(entries) => {
+            // Find the largest 'n'
+            let largest_n = entries
+                .filter_map(|entry| {
+                    entry.ok().and_then(|dir_entry| {
+                        dir_entry
+                            .file_name()
+                            .to_str()
+                            .and_then(|file_name| parse_crawl_number(file_name))
+                    })
+                })
+                .max()
+                .unwrap_or(0);
+
+            // Create a new string with 'crawl_{n+1}'
+            let new_string = format!("crawl_history/crawl_{}", largest_n + 1);
+            return Some(new_string);
+        }
+        Err(err) => {
+            eprintln!("Error reading directory: {}", err);
+            None 
+        }
+    }
+}
+
+// Helper function to parse the 'crawl' number from a file name
+fn parse_crawl_number(file_name: &str) -> Option<u32> {
+    if file_name.starts_with("crawl_") {
+        file_name["crawl_".len()..].parse().ok()
+    } else {
+        None
+    }
 }
